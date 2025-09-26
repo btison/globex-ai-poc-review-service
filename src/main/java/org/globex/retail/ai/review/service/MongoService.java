@@ -27,6 +27,9 @@ public class MongoService {
     @ConfigProperty(name = "mongodb.reviews.collection")
     String reviewCollection;
 
+    @ConfigProperty(name = "mongodb.summary.collection")
+    String summaryCollection;
+
     public PagedReviewList reviewsByProduct(String productCode, int page, int limit) {
         MongoCollection<Document> collection = mongoClient.getDatabase(database).getCollection(reviewCollection);
         Bson filter = Filters.eq("product_code", productCode);
@@ -48,5 +51,16 @@ public class MongoService {
                 .withSize(limit)
                 .withNumber(page)
                 .build();
+    }
+
+    public String reviewSummaryByProductId(String productCode) {
+        Bson summaryFilter = Filters.eq("product_code", productCode);
+        Document reviewSummary = mongoClient.getDatabase(database).getCollection(summaryCollection)
+                .find(summaryFilter).first();
+        if (reviewSummary == null) {
+            return null;
+        } else {
+            return reviewSummary.toJson();
+        }
     }
 }

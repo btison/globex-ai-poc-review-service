@@ -82,7 +82,19 @@ public class RestResource {
 
     @GET
     @Path("/summary/{id}")
-    public Uni<Response> getReviewSummaryByProductId() {
-        return null;
+    public Uni<Response> getReviewSummaryByProductId(@PathParam("id") String productId) {
+        return Uni.createFrom().item(() -> productId).emitOn(Infrastructure.getDefaultWorkerPool())
+                .onItem().transform(id -> mongoService.reviewSummaryByProductId(id))
+                .onItem().transform(s -> {
+                    if (s == null || s.isBlank()) {
+                        return Response.status(Response.Status.NOT_FOUND).build();
+                    } else {
+                        return Response.ok(s).build();
+                    }
+                })
+                .onFailure().recoverWithItem(throwable -> {
+                    log.error("Exception while fetching review summary", throwable);
+                    return Response.serverError().build();
+                });
     }
 }
