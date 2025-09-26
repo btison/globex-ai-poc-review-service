@@ -2,14 +2,14 @@ package org.globex.retail.ai.review.service;
 
 import com.networknt.schema.JsonSchemaException;
 import io.smallrye.mutiny.Uni;
+import io.smallrye.mutiny.infrastructure.Infrastructure;
 import io.vertx.core.json.JsonObject;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import jakarta.ws.rs.Consumes;
-import jakarta.ws.rs.POST;
-import jakarta.ws.rs.Path;
+import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,11 +25,18 @@ public class RestResource {
     @Inject
     KafkaService kafkaService;
 
+    @Inject
+    MongoService mongoService;
+
+    @ConfigProperty(name = "mongodb.reviews.query.limit")
+    Integer queryLimit;
+
     @POST
     @Path("/submit")
     @Consumes(MediaType.APPLICATION_JSON)
     public Uni<Response> submitReview(String payload) {
-        return Uni.createFrom().item(() -> payload).onItem().invoke(p -> validator.validate(p))
+        return Uni.createFrom().item(() -> payload).emitOn(Infrastructure.getDefaultWorkerPool())
+                .onItem().invoke(p -> validator.validate(p))
                 .onItem().invoke(p -> {
                     JsonObject json = new JsonObject(p);
                     kafkaService.emit(json.getString("id"), p);
@@ -45,5 +52,37 @@ public class RestResource {
                     }
                 });
 
+    }
+
+    @GET
+    @Path("/product/{id}")
+    public Uni<Response> getReviewsByProductId(@PathParam("id") String productId, @QueryParam("page") Integer page, @QueryParam("limit") Integer limit) {
+        return Uni.createFrom().item(() -> productId).emitOn(Infrastructure.getDefaultWorkerPool())
+                .onItem().transform(id -> {
+                    int pageIndex;
+                    if (page == null) {
+                        pageIndex = 0;
+                    } else {
+                        pageIndex = page == 0? 0 : page-1;
+                    }
+                    int max;
+                    if (limit == null || limit <= 0) {
+                        max = queryLimit;
+                    } else {
+                        max = limit;
+                    }
+                    return mongoService.reviewsByProduct(id, pageIndex, max);
+                })
+                .onItem().transform(p -> Response.ok(p).build())
+                .onFailure().recoverWithItem(throwable -> {
+                    log.error("Exception while fetching paged review list", throwable);
+                    return Response.serverError().build();
+        });
+    }
+
+    @GET
+    @Path("/summary/{id}")
+    public Uni<Response> getReviewSummaryByProductId() {
+        return null;
     }
 }
