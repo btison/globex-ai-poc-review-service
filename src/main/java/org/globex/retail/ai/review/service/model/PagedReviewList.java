@@ -4,7 +4,7 @@ import java.util.List;
 
 public class PagedReviewList {
 
-    private List<String> reviews;
+    private List<Review> reviews;
 
     private int totalElements;
 
@@ -16,7 +16,7 @@ public class PagedReviewList {
 
     private int number;
 
-    public List<String> getReviews() {
+    public List<Review> getReviews() {
         return reviews;
     }
 
@@ -52,7 +52,7 @@ public class PagedReviewList {
             this.pagedReviewList = new PagedReviewList();
         }
 
-        public Builder withReviews(List<String> reviews) {
+        public Builder withReviews(List<Review> reviews) {
             this.pagedReviewList.reviews= reviews;
             return this;
         }

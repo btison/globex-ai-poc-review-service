@@ -5,12 +5,15 @@ import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoIterable;
 import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.Sorts;
+import io.vertx.core.json.Json;
+import io.vertx.core.json.JsonObject;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.bson.Document;
 import org.bson.conversions.Bson;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.globex.retail.ai.review.service.model.PagedReviewList;
+import org.globex.retail.ai.review.service.model.Review;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -34,13 +37,21 @@ public class MongoService {
         MongoCollection<Document> collection = mongoClient.getDatabase(database).getCollection(reviewCollection);
         Bson filter = Filters.eq("product_code", productCode);
         Bson sort = Sorts.orderBy(Sorts.descending("timestamp"));
-        MongoIterable<String> iterable = collection
+        MongoIterable<Review> iterable = collection
                 .find(filter)
                 .sort(sort)
                 .limit(limit)
                 .skip(page*limit)
-                .map(Document::toJson);
-        List<String> reviews = new ArrayList<>();
+                .map(d -> Review.builder(d.getString("review_id"))
+                        .withUser(d.getString("user"))
+                        .withProductCode(d.getString("product_code"))
+                        .withProduct(d.getString("product"))
+                        .withReview(d.getString("review"))
+                        .withStars(d.getInteger("stars"))
+                        .withTimestamp(d.getLong("timestamp"))
+                        .withCreated(d.getString("created"))
+                        .build());
+        List<Review> reviews = new ArrayList<>();
         iterable.into(reviews);
         long count = collection.countDocuments(filter);
         return PagedReviewList.builder()
